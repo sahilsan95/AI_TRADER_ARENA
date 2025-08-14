@@ -9,4 +9,5 @@ library Errors {
     string constant TradeTooSoon        = "TRADE_TOO_SOON";
     string constant TournamentInactive  = "TOURNAMENT_INACTIVE";
     string constant NothingToDo         = "NOTHING_TO_DO";
+    string constant Unauthorized        = "UNAUTHORIZED"; 
 }

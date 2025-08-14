@@ -28,6 +28,7 @@ contract TradingArena is ITradingArena, IValuationView, Ownable2Step {
     address public override tokenB;
 
     event QuoteTokenUpdated(address indexed oldQuoteToken, address indexed newQuoteToken);
+    event StrategySelected(uint256 indexed botId, address indexed strategyAddr);
 
     constructor(
         IBotRegistry _reg,
@@ -47,6 +48,15 @@ contract TradingArena is ITradingArena, IValuationView, Ownable2Step {
         address old = quoteToken;
         quoteToken = _newQuoteToken;
         emit QuoteTokenUpdated(old, _newQuoteToken);
+    }
+
+    /// --- Allow bot owners to select their strategy contract
+    function selectStrategy(uint256 botId, address strategyAddr) external {
+        require(strategyAddr != address(0), "Invalid strategy");
+        IBotRegistry.BotInfo memory info = registry.getBot(botId);
+        require(msg.sender == info.owner, Errors.Unauthorized);
+        registry.setStrategy(botId, strategyAddr);
+        emit StrategySelected(botId, strategyAddr);
     }
 
     function ammAddress() external view override returns (address) {
@@ -84,10 +94,16 @@ contract TradingArena is ITradingArena, IValuationView, Ownable2Step {
 
     function tick(uint256 botId) external override {
         IBotRegistry.BotInfo memory info = registry.getBot(botId);
-        require(info.strategy != address(0), "NO_STRATEGY");
-        (bool doTrade, address tin, address tout, uint256 amt) = IStrategy(info.strategy).decide(botId);
-        if (doTrade) executeTrade(botId, tin, tout, amt);
-        else _updateValuationInternal(botId);
+        address strategyAddr = info.strategy;
+
+        require(strategyAddr != address(0), "NO_STRATEGY");
+
+        (bool doTrade, address tokenIn, address tokenOut, uint256 amountIn) = IStrategy(strategyAddr).decide(botId);
+        if (doTrade) {
+            executeTrade(botId, tokenIn, tokenOut, amountIn);
+        } else {
+            _updateValuationInternal(botId);
+        }
     }
 
     function tickMany(uint256[] calldata botIds) external override {
